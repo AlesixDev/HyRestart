@@ -12,6 +12,9 @@ import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.server.core.Message;
+import java.io.File;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashSet;
@@ -34,6 +37,8 @@ public class RestartScheduler {
     private final ScheduledExecutorService scheduler;
     private final DiscordWebhook discordWebhook;
     private final Set<String> sentWarnings;
+    private final File lastRestartFile;
+    private long lastRestartEpochMillis;
 
     private LocalTime nextRestartTime;
     private boolean restartInProgress;
@@ -44,9 +49,12 @@ public class RestartScheduler {
         this.discordWebhook = new DiscordWebhook(config.getDiscord().getWebhookUrl(), config.getMessages());
         this.sentWarnings = new HashSet<>();
         this.restartInProgress = false;
+        this.lastRestartFile = new File("mods/HyRestart", "last-restart.txt");
+        this.lastRestartEpochMillis = 0L;
     }
 
     public void start() {
+        loadLastRestartTimestamp();
         calculateNextRestart();
         scheduler.scheduleAtFixedRate(
             this::checkRestartTime,
@@ -134,6 +142,11 @@ public class RestartScheduler {
 
             if (rawSeconds <= RESTART_THRESHOLD_SECONDS && rawSeconds >= -CHECK_INTERVAL_SECONDS) {
                 if (!sentWarnings.contains("restart")) {
+                    if (isRestartCooldownActive()) {
+                        LOGGER.info("[HyRestart] Skipping restart due to recent restart cooldown.");
+                        calculateNextRestart();
+                        return;
+                    }
                     sentWarnings.add("restart");
                     restartInProgress = true;
                     performRestart();
@@ -235,6 +248,7 @@ public class RestartScheduler {
         broadcastMessage(config.getFinalRestartMessage());
 
         stop();
+        saveLastRestartTimestamp();
 
         try {
             Thread.sleep(1000);
@@ -248,5 +262,42 @@ public class RestartScheduler {
 
     public LocalTime getNextRestartTime() {
         return nextRestartTime;
+    }
+
+    private void loadLastRestartTimestamp() {
+        if (!lastRestartFile.exists()) {
+            return;
+        }
+
+        try {
+            String value = Files.readString(lastRestartFile.toPath(), StandardCharsets.UTF_8).trim();
+            if (!value.isEmpty()) {
+                lastRestartEpochMillis = Long.parseLong(value);
+            }
+        } catch (Exception e) {
+            LOGGER.warning("[HyRestart] Failed to read last restart timestamp: " + e.getMessage());
+        }
+    }
+
+    private void saveLastRestartTimestamp() {
+        try {
+            File parent = lastRestartFile.getParentFile();
+            if (parent != null && !parent.exists()) {
+                parent.mkdirs();
+            }
+            lastRestartEpochMillis = System.currentTimeMillis();
+            Files.writeString(lastRestartFile.toPath(), String.valueOf(lastRestartEpochMillis), StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            LOGGER.warning("[HyRestart] Failed to save last restart timestamp: " + e.getMessage());
+        }
+    }
+
+    private boolean isRestartCooldownActive() {
+        int cooldownSeconds = config.getRestartCooldownSeconds();
+        if (cooldownSeconds <= 0 || lastRestartEpochMillis <= 0) {
+            return false;
+        }
+        long elapsedMillis = System.currentTimeMillis() - lastRestartEpochMillis;
+        return elapsedMillis >= 0 && elapsedMillis < (cooldownSeconds * 1000L);
     }
 }

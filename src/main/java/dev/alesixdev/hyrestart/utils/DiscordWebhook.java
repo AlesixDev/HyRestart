@@ -4,6 +4,7 @@ import dev.alesixdev.hyrestart.config.ConfigData;
 
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
+import java.net.URI;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -33,7 +34,7 @@ public class DiscordWebhook {
         }
 
         try {
-            URL url = new URL(webhookUrl);
+            URL url = URI.create(webhookUrl).toURL();
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
             connection.setRequestMethod("POST");
             connection.setRequestProperty("Content-Type", "application/json");
@@ -60,8 +61,6 @@ public class DiscordWebhook {
     }
 
     private String buildEmbedJson(String title, String description, int color) {
-        long timestamp = Instant.now().toEpochMilli();
-
         return String.format(
                 "{\"embeds\":[{\"title\":\"%s\",\"description\":\"%s\",\"color\":%d,\"timestamp\":\"%s\"}]}",
                 escapeJson(title),

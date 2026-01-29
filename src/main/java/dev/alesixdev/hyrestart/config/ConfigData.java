@@ -6,6 +6,7 @@ import java.util.List;
 
 public class ConfigData {
     private List<String> restartTimes = Arrays.asList("03:00", "09:00", "15:00", "21:00");
+    private int restartCooldownSeconds = 60;
     private List<WarningConfig> warnings = createDefaultWarnings();
     private String finalRestartMessage = "<red>[Restart] Restarting server NOW!</red>";
     private DiscordConfig discord = new DiscordConfig();
@@ -30,6 +31,14 @@ public class ConfigData {
 
     public void setRestartTimes(List<String> restartTimes) {
         this.restartTimes = restartTimes;
+    }
+
+    public int getRestartCooldownSeconds() {
+        return restartCooldownSeconds;
+    }
+
+    public void setRestartCooldownSeconds(int restartCooldownSeconds) {
+        this.restartCooldownSeconds = restartCooldownSeconds;
     }
 
     public List<WarningConfig> getWarnings() {

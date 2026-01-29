@@ -73,6 +73,9 @@ restartTimes:
   - "15:00"
   - "21:00"
 
+# Cooldown after a restart to prevent immediate re-restart loops (seconds)
+restartCooldownSeconds: 60
+
 # Final restart message
 finalRestartMessage: "[Restart] Restarting server NOW!"
 ```
