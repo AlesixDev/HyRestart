@@ -49,7 +49,7 @@ finalRestartMessage: "<red>[Restart] Restarting server NOW!</red>"
 
 # Discord configuration
 discord:
-  enabled: true
+  enabled: false
   webhookUrl: ""
   # Warning embeds (sent during countdown)
   embedTitle: "Server Restart"
