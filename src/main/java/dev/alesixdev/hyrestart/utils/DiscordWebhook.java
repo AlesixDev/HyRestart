@@ -33,31 +33,37 @@ public class DiscordWebhook {
             return;
         }
 
-        try {
-            URL url = URI.create(webhookUrl).toURL();
-            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-            connection.setRequestMethod("POST");
-            connection.setRequestProperty("Content-Type", "application/json");
-            connection.setRequestProperty("User-Agent", "HyRestart-Bot");
-            connection.setDoOutput(true);
+        String jsonPayload = buildEmbedJson(title, description, color);
+        Thread thread = new Thread(() -> {
+            try {
+                URL url = URI.create(webhookUrl).toURL();
+                HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+                connection.setConnectTimeout(5000);
+                connection.setReadTimeout(5000);
+                connection.setRequestMethod("POST");
+                connection.setRequestProperty("Content-Type", "application/json");
+                connection.setRequestProperty("User-Agent", "HyRestart-Bot");
+                connection.setDoOutput(true);
 
-            String jsonPayload = buildEmbedJson(title, description, color);
+                try (OutputStream os = connection.getOutputStream()) {
+                    byte[] input = jsonPayload.getBytes(StandardCharsets.UTF_8);
+                    os.write(input, 0, input.length);
+                }
 
-            try (OutputStream os = connection.getOutputStream()) {
-                byte[] input = jsonPayload.getBytes(StandardCharsets.UTF_8);
-                os.write(input, 0, input.length);
+                int responseCode = connection.getResponseCode();
+                if (responseCode < 200 || responseCode >= 300) {
+                    LOGGER.severe(messages.getDiscordWebhookFailed().replace("{code}", String.valueOf(responseCode)));
+                }
+
+                connection.disconnect();
+            } catch (Exception e) {
+                LOGGER.severe(messages.getDiscordWebhookError().replace("{error}", e.getMessage()));
+                e.printStackTrace();
             }
-
-            int responseCode = connection.getResponseCode();
-            if (responseCode < 200 || responseCode >= 300) {
-                LOGGER.severe(messages.getDiscordWebhookFailed().replace("{code}", String.valueOf(responseCode)));
-            }
-
-            connection.disconnect();
-        } catch (Exception e) {
-            LOGGER.severe(messages.getDiscordWebhookError().replace("{error}", e.getMessage()));
-            e.printStackTrace();
-        }
+        });
+        thread.setDaemon(true);
+        thread.setName("HyRestart-Discord");
+        thread.start();
     }
 
     private String buildEmbedJson(String title, String description, int color) {

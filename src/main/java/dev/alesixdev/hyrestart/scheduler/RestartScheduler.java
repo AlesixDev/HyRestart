@@ -1,16 +1,13 @@
 package dev.alesixdev.hyrestart.scheduler;
 
 import com.hypixel.hytale.server.core.HytaleServer;
+import com.hypixel.hytale.server.core.ShutdownReason;
 import dev.alesixdev.hyrestart.config.ConfigData;
 import dev.alesixdev.hyrestart.config.WarningConfig;
 import dev.alesixdev.hyrestart.utils.DiscordWebhook;
 import dev.alesixdev.hyrestart.utils.MessageFormatter;
 import com.hypixel.hytale.server.core.universe.Universe;
-import com.hypixel.hytale.server.core.universe.PlayerRef;
-import com.hypixel.hytale.server.core.entity.entities.Player;
-import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
-import com.hypixel.hytale.component.Store;
-import com.hypixel.hytale.component.Ref;
+import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.Message;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
@@ -18,11 +15,11 @@ import java.nio.file.Files;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class RestartScheduler {
@@ -67,11 +64,9 @@ public class RestartScheduler {
 
     public void stop() {
         if (scheduler.isShutdown()) {
-            LOGGER.info("[HyRestart] Scheduler already stopped, skipping...");
             return;
         }
 
-        LOGGER.info("[HyRestart] Stopping scheduler...");
         scheduler.shutdown();
         try {
             if (!scheduler.awaitTermination(5, TimeUnit.SECONDS)) {
@@ -156,8 +151,8 @@ public class RestartScheduler {
 
             long secondsUntilRestart = rawSeconds < 0 ? rawSeconds + 86400 : rawSeconds;
             processWarnings(secondsUntilRestart);
-        } catch (Exception e) {
-            LOGGER.severe(config.getMessages().getErrorInScheduler().replace("{error}", e.getMessage()));
+        } catch (Throwable e) {
+            LOGGER.log(Level.SEVERE, "[HyRestart] Error in scheduler tick", e);
         }
     }
 
@@ -202,62 +197,40 @@ public class RestartScheduler {
 
     private void broadcastMessage(String message) {
         try {
-            List<PlayerRef> players = Universe.get().getPlayers();
-            LOGGER.info(config.getMessages().getBroadcastingToPlayers()
-                .replace("{count}", String.valueOf(players.size()))
-                .replace("{message}", message));
-
-            if (players.isEmpty()) {
-                return;
-            }
-
             Message msg = MessageFormatter.createColoredMessage(message);
-
-            for (PlayerRef playerRef : players) {
-                sendMessageToPlayer(playerRef, msg);
+            World world = Universe.get().getDefaultWorld();
+            if (world != null) {
+                LOGGER.info(config.getMessages().getBroadcastingToPlayers()
+                    .replace("{count}", "?")
+                    .replace("{message}", message));
+                world.execute(() -> world.sendMessage(msg));
+            } else {
+                LOGGER.warning("[HyRestart] No default world found, skipping broadcast.");
             }
-        } catch (Exception e) {
-            LOGGER.severe(config.getMessages().getErrorBroadcasting().replace("{error}", e.getMessage()));
-        }
-    }
-
-    private void sendMessageToPlayer(PlayerRef playerRef, Message msg) {
-        try {
-            Ref<EntityStore> ref = playerRef.getReference();
-            if (ref != null) {
-                Store<EntityStore> store = ref.getStore();
-                store.getExternalData().getWorld().execute(() -> {
-                    try {
-                        Player player = store.getComponent(ref, Player.getComponentType());
-                        if (player != null) {
-                            player.sendMessage(msg);
-                        }
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                        LOGGER.severe(config.getMessages().getErrorSendingToPlayer().replace("{username}", playerRef.getUsername()));
-                    }
-                });
-            }
-        } catch (Exception e) {
-            LOGGER.severe(config.getMessages().getErrorSchedulingForPlayer().replace("{username}", playerRef.getUsername()));
+        } catch (Throwable e) {
+            LOGGER.log(Level.SEVERE, "[HyRestart] Error broadcasting message", e);
         }
     }
 
     private void performRestart() {
-        LOGGER.info(config.getMessages().getStartingRestart());
-        broadcastMessage(config.getFinalRestartMessage());
-
-        stop();
-        saveLastRestartTimestamp();
-
         try {
-            Thread.sleep(1000);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
+            LOGGER.info(config.getMessages().getStartingRestart());
+            broadcastMessage(config.getFinalRestartMessage());
 
-        LOGGER.info(config.getMessages().getShuttingDown());
-        HytaleServer.get().shutdownServer();
+            scheduler.shutdown();
+            saveLastRestartTimestamp();
+
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+
+            LOGGER.info(config.getMessages().getShuttingDown());
+            HytaleServer.get().shutdownServer(ShutdownReason.SHUTDOWN);
+        } catch (Throwable e) {
+            LOGGER.log(Level.SEVERE, "[HyRestart] CRITICAL: Exception during performRestart", e);
+        }
     }
 
     public LocalTime getNextRestartTime() {

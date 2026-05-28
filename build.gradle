@@ -3,13 +3,10 @@ plugins {
 }
 
 group = 'dev.alesixdev'
-version = '1.2.4'
+version = '1.2.5'
 
 repositories {
     mavenCentral()
-    flatDir {
-        dirs 'libraries'
-    }
 }
 
 java {
@@ -23,7 +20,7 @@ tasks.withType(JavaCompile).configureEach {
 }
 
 dependencies {
-    compileOnly name: 'HytaleServer'
+    compileOnly files("${System.getProperty('user.home')}/AppData/Roaming/Hytale/install/release/package/game/latest/Server/HytaleServer.jar")
 
     implementation 'org.yaml:snakeyaml:2.2'
 

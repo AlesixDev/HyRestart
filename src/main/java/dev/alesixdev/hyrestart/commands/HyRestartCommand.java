@@ -1,6 +1,5 @@
 package dev.alesixdev.hyrestart.commands;
 
-import com.hypixel.hytale.protocol.GameMode;
 import com.hypixel.hytale.server.core.command.system.CommandContext;
 import com.hypixel.hytale.server.core.command.system.arguments.system.RequiredArg;
 import com.hypixel.hytale.server.core.command.system.arguments.types.ArgTypes;
@@ -26,7 +25,7 @@ public class HyRestartCommand extends CommandBase {
                 ArgTypes.STRING
         );
 
-        this.setPermissionGroup(GameMode.Creative);
+        this.setPermissionGroups("hytale:WorldEditor");
         this.addAliases("hyr");
     }
 
