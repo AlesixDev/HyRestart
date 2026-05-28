@@ -1,7 +1,7 @@
 {
   "Group": "dev.alesixdev",
   "Name": "HyRestart",
-  "Version": "1.2.5",
+  "Version": "1.2.6",
   "Description": "Automatic restart plugin for Hytale.",
   "Authors": [
     {
