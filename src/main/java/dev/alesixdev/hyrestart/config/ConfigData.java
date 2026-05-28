@@ -82,7 +82,7 @@ public class ConfigData {
     }
 
     public static class DiscordConfig {
-        private boolean enabled = true;
+        private boolean enabled = false;
         private String webhookUrl = "";
         private String embedTitle = "Server Restart";
         private String embedDescription = "The server will restart in **{time}**.\n\nPlease save your progress and disconnect.";
